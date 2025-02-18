@@ -26,8 +26,7 @@
 
     <p>
         Cwl is a stack based virtual machine with an editor. The vm has a few registers, the stack pointer,
-        and instruction pointer. Everything else is passed on a stack. Instructions are all 16 bits, 8 for the
-        opcode and 8 for the arguments.
+        and instruction pointer. Everything else is passed on a stack.   
     </p>
 
 
@@ -35,7 +34,7 @@
     <p>
         Lets write a little program to add a few numbers togeather and show the resault!
 
-    <div style="width: 100%; display: table;">
+    <div style="width: 10; display: table;">
         <div style="display: table-row;">
             <div style="display: table-cell;">
                 <pre>
@@ -226,14 +225,15 @@ Now I have to go and put togeather a simulator.
 
 </div>
 
+
+<div>
+  <p>
+    Instructions are all 16 bits, 8 for the opcode and 8 for the arguments.opcode
+  </p>
+</div>
+
 <pre><code>
     /* casio_watch_lang/cwl.h */
-
-    typedef struct cwl_vm_inst
-    {
-        uint8_t opp, arg;
-    } cwl_vm_inst;
-    
     ...
 
     typedef struct cwl_state
