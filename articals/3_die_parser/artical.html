@@ -1,0 +1,209 @@
+<h1>Die Parser</h1>
+
+<p>
+    In this article, Describe how the ParseDie method below works.
+
+
+    This method is designed to take an input string, and return back a die roll structure.
+</p>
+
+
+<p>
+
+<pre><code class="language-c">
+typedef struct Die
+{
+    int amount, sides, offset;
+} Die;
+</code></pre>
+
+<p>
+    The overall goal of this method is to turn the string "1d12+1" into a Die object with the values
+
+<pre>
+{
+    int amount = 1;
+    int sides = 12;
+    int offset = 1;
+}
+</pre>
+
+</p>
+
+
+<pre><code class="language-c">
+
+void ParseDie(const char *str, Die *out)
+{
+    char pb[10] = {0};
+    const char *c = str;
+    const char *sb = NULL;
+    while (*c != 0 && *c != 'd')
+        c++;
+
+    memcpy(pb, str, c - str);
+    out->amount = atoi(pb);
+    memset(pb, 0, sizeof(pb));
+
+    c += 1; // skip the d
+    sb = c;
+
+    while (*c != 0 && *c != '+' && *c != '-')
+        c++;
+
+    memcpy(pb, sb, c - sb);
+    out->sides = atoi(pb);
+    memset(pb, 0, sizeof(pb));
+
+    sb = c;
+
+    while (*c != 0)
+        c++;
+
+    memcpy(pb, sb, c - sb);
+    out->offset = atoi(pb);
+}
+    </code></pre>
+
+
+The first magic thing we see,
+<pre><code class="language-c">
+        while (*c != 0 && *c != 'd')
+            c++;
+</code></pre>
+
+Lets break this down.
+
+Firstly, we have a char pointer called <code>c</code> this pointer can be thought of like
+the cursor, its where in the string we are.
+<br>
+
+In this while loop, we take the value at c, represented by
+<code>*c</code>, we then check that it is not zero.
+
+<pre><code class="language-c">*c != 0</code></pre>
+
+If the string is 0 at this point, we have hit the end of the string and should not continue. <br>
+For those who do not know, a c string ALWAYS ends with a null char. This rule is fallowed by all of the standard library
+functions.
+<br>
+
+Now we verified that we are not at the end of the string.
+Next up, we check for the first break condition, when the value at c (*c) becomes the letter <code>d</code>
+(
+<pre><code class="language-c">*c != 'd'</code></pre>)
+we know that we have found all the characters that make up the amount of die to roll. When we do not hit
+any of these conditions, we increment the cursor position by one, and move on to checking the next char.
+<p>Thinking about it, when you read *c in your mind, i want you to think, The value at c</p>
+<br>
+
+In the code now, we have two pointers; <code>str</code>, and <code>c</code>. c is a pointer to the end of
+the first number we are parsing.
+
+<br>
+The next step is to turn this pointer into the number that its chars represent. Currently this string is in ASCII,
+and we want it to just be a plane old number that we can work with later. Todo this, we will use another stdlib method,
+<code>int atoi(char *)</code> atoi takes in a pointer of a null terminated string, and returns the number it represents.
+We cant just pass in our current pointer, as it would start reading into the other parts of the string, and the man
+pages do not tell us, what the return is when there is a non-number character in the buffer, so to avoid undefined
+behaver, we will make a new buffer <code>pb</code> that we can modify and append the null terminator into.
+
+The C magic todo that looks like this:
+<pre><code class="language-c">memcpy(pb, str, c - str)</code></pre>
+
+We use a function out of <code>string.h</code> memcpy. Memory Copy takes in a destination pointer, a source pointer,
+and the amount of bytes to copy. For the destination, we pass in the address of <code>pb</code>, for a source,
+we use <code>str</code>, the input string, seeing as the start of our number is always the first char in the string.
+
+With a little pointer subtraction, we can compute the length of the first number.
+<pre>
+str v         - Str points to this first byte of the string
+    1d12+0
+c    ^        - cp points to the char d
+</pre>
+
+In this case, we can visually see that <code>c</code> is one in front of str. And as such, <code>c - str = 1</code>.
+This gives us our length to pass into Memory Copy.
+<br>
+On with the next show of magic; the atoi call.
+<pre><code class="language-c">out->amount = atoi(pb)</code></pre>
+We take our char array that we just copied our string into, and pass that to atoi to turn it into a nice number for us.
+Ascii to Int is usually considered an untasteful method to use, as there is no way to tell if it failed. When atoi
+fails, it returns the number 0... A perfectly valid number, with no way to check for errors. In our case, the user
+will see that there is a zero in there dice rolling UI, so I don't worry about it here. But it is something to
+think about if you are doing something like this in production.
+<br>
+If you are not used to pointers in c, we have to use the arrow syntax,
+this means dereference the pointer. So we end up writing to the struct that is defined in the method that called us.
+Then we have to reset our parse buffer for the next number that we have to parse, lucky the string.h has something
+for that too! Its called <code>memset(void* dst, c, len)</code>. Memory Set takes in a pointer to
+the destination to set values to, a number that we want to set each byte to, and the length of data we want to set
+from the dst pointer. For us, we use a call like this
+<pre><code class="language-c">memset(pb, 0, sizeof(pb))</code></pre>.
+
+We pass for length of the pb pointer, the <code>sizeof(pb)</code>, and sizeof returns the length of the object in bytes,
+so we don't have todo any math on its value, as we are working with bytes directly.
+After this call, our <code>pb</code> array is now all zeros, all reset and ready for us to use it once more!
+<br>
+<br>
+Next, we skip the d char that the user provided us. This is done by incrementing the c pointer by 1.
+<code>c += 1</code>
+<br>
+
+We then store the current cursor into our variable called <code>sb</code>, as we are going to need to use
+where we are now to compute how far in the string we have gone.
+<br>
+
+We use a smiler while loop to skip to the next separator in our string, a + or -, this works exactly the same 
+as above, just with different constants as our break conditions. So I wont bore you that part 😀.
+
+What is different, is how we compute the offsets for our die sides number, this requires us to use the <code>sb</code>
+pointer that we stored before. This time we cant use str as our base to pass into memcpy, here is why :
+<pre>
+    str v         - Str points to this first byte of the string
+        1d12+0
+    sb    ^ ^     - sb points to the char after the d
+     c      |     - c now points to the char +
+    </pre>
+
+    We can now employ simler memcpy, atoi, and setting calls,
+
+    <pre><code class="language-c">
+memcpy(pb, sb, c - sb);
+out->sides = atoi(pb);
+memset(pb, 0, sizeof(pb));
+    </code></pre>
+
+    We are on the final step now! We just need to read out the offset that we want to apply to the roll, this 
+    can be positive or negative, so lucky for us, cursor <code>c</code> is already pointing at the + or - symbol 
+    for us. So lets save that into <code>sb</code> for the same use with memcpy. 
+    <pre><code>sb = c;</code></pre> Easy! and now we just want to read to the end of the string, this one is 
+    easer too, as we already that the string ends with a null byte (0). 
+    <pre><code class="language-c">
+while (*c != 0) c++;</code></pre>
+
+Perfect, now our pointers are going to look like this,
+<pre>
+    str v         - Str points to this first byte of the string
+        1d12+0
+    sb      ^ ^   - sb points to the + char
+     c        |   - c now points to final null byte
+    </pre>
+
+and now we copy it out to our parse buffer and atoi it the same as we did before, 
+
+<pre><code>
+memcpy(pb, sb, c - sb);
+out->offset = atoi(pb);</code></pre>
+
+</p>
+
+after this, our method returns, and we are done. We have read in that die roll from its corresponding string!
+
+Full code can be found <a href="https://gist.github.com/hexmaster111/18662d8e749cc97b1d135051df398bac">Here!</a>
+
+Feel free to leave questions in the Gist linked above!
+
+
+
+<p>Created FEB 28 2025</p>
