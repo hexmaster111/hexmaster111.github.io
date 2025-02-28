@@ -72,8 +72,177 @@ with a pre built object in another buffer.
 With those little changes, it is far easer to work with json now!
 
 A link to this Library is <a href="https://github.com/hexmaster111/HaileysHeaders/blob/main/json_simple.h">Here!</a>
+
+
+<h2>How this works?</h2>
+
+<p>Well... Ive been using C# and a lot of the inbuilt json tools and they all just feel... bloated with runtime
+    reflection
+    and a need for attributes and all sorts of stuff that yes, makes sense if you stair at it long enough, but
+    I wanted something simpler.
+
+    I just want to make a little json object with a few properties to blast off to a web server, or to write to a
+    text file to read later. So I made something simple, DEAD simple.</p>
+
+
+<p>Lets look at this one call at a time!</p>
+<p>
+    Our first call is that of JsonBuildObject_Start(char * dst). This call is very simple, it just
+    appends the json's '{' to start the object at the end of the buffer.
+
+
+    Here is the body of that method for reference.
+<pre><code class="language-c"> dst[strlen(dst)] = '{'</code></pre>
+
+First thing we do, is measure the current string length (a common theme though this process).
+we then insert the Open bracket at the measured position.
+
+In the first call here <code>strlen()</code> will return 0, as the buffer is filled with all 0's and there is no length
+to the string inside!
 </p>
+
+<p>
+    Onto the next call, <code>JsonBuildObject_AddPropertyRaw(buf, "k", "1", 0)</code>
+
+    The goal of this call is to add an property to the json, k, and set its value to the number 1.
+
+    To solve this, lets look at the current state of the buffer
+
+<pre>
+        buf[0] = '{'
+        buf[1] = 0
+        buf[2] = 0's...
+    </pre>
+
+To add a property we want to append a quote, and then copy in the name of the object.
+
+We can accomplish this work in C using the <code>memcpy(void *dst, void *src, size_t len)</code> function.
+
+memcpy or Memory Copy, takes in an address to copy data to, and an address to copy data from, along with a length
+to copy argument.
+
+firstly to make the property, lets append the quote. This is done the same way we append the open bracket in the
+last step.
+
+Then, we measure the distance in that we should start copying. Todo this we use strlen once more.
+<pre><code class="language-c">int inspos = strlen(dst);</code></pre>
+
+Now that we know where we should place the property name, we can compute the offset in the buffer, while this sounds 
+complex, its simply addition!
+Lets look at that memcpy call closer!
+<pre><code class="language-c">memcpy(dst + inspos, name, strlen(name))</code></pre>
+
+Here, we have our dest pointer, its a pointer to the buffer we described above,
+<pre>
+    buf[0] = '{'
+    buf[1] = '"'
+    buf[2] = 0
+    buf[3] = 0
+    buf[4] = 0
+    buf[5] = 0
+    buf[6] = 0's...
+</pre>
+
+    So now, <code>inpos</code> is equal to 2, as its the next spot to insert into the buffer.
+
+    Now we are in C, so we can just do math on the pointer directly! if we add 2 to the buffer pointer,
+    we end up with a buffer that looks like this to the memcpy function. 
+
+    <pre>
+        buf[0] = 0         
+        buf[1] = 0
+        buf[2] = 0
+        buf[3] = 0
+        buf[4] = 0's...
+    </pre>
+
+    It looks empty! but its not, we just scooted the buffer forwards! or in other words, we offset our buffer.
+
+    We now go into the memcpy call, where the name gets placed into our buffer at buffer + 2.
+
+    Lets look at our buffer now.
+
+    <pre>
+    buf[0] = '{'
+    buf[1] = '"'
+    buf[2] = 'k'
+    buf[3] = 0
+    buf[4] = 0
+    buf[5] = 0
+    buf[6] = 0's...
+    </pre>
+
+    Perfect, memcpy put the name of the property we are copying into the buffer. Now we can append the next quote
+    like we did before, measuring the string with strlen, and then inserting at that position; We do the same for
+    the prop name, value separator char ':'.
+
+    Next we need to copy in the value of this property, and its done in an identical fashion as we copied
+    in the name of this property. 
+
+    After all this copying, lets look at the state of our buffer now.
+
+    
+    <pre>
+        buf[0] = '{'
+        buf[1] = '"'
+        buf[2] = 'k'
+        buf[3] = '"'
+        buf[4] = ':'
+        buf[5] = '1'
+        buf[6] = 0's...
+    </pre>
+
+    This looks great, except its missing something to be done with this call, the `,` char, to denote that
+    there are more properties and values to come! To handle this, I have the <code>isLast</code> argument, that
+    is set to 1 if its the last property, and set to a 0 if its is not. <br>
+
+    In this case, we arn't done building this object so there is a very little if statement we use
+
+    <pre><code class="language-c">if (!isLast) dst[strlen(dst)] = ','</code></pre>
+
+    this just checks weather this is the last one, if its not the last property, we append a <code>,</code> to the end
+    of the buffer!
+
+    Then the method returns.
+</p>
+
+<p>
+    The next call, <code>JsonBuildObject_StartObject(char *dst, char *name)</code> takes in 
+    two pointers, one to where to write our data to, and the name of the object we are starting.
+    <br>
+    Just like the last step, we append a <code>"</code> to the buffer, and then copy in the name.
+
+    This leaves our final buffer as fallows <br>
+
+    <pre><code class="language-json">{"k":1,"Object":{</code></pre>
+
+        This leaves our buffer in the perfect state to start using any of the add property methods,
+        or even an add object call. This can be tied together with for loops to make a very powerful
+        serialization system with nothing more then a buffer!
+</p>
+
+<p>
+    Lets skip on to where we are starting to finish up this work, now that we have an object here. 
+    Firstly, we must think of the builder like a stack, we called _start and  like methods, 
+    so we will have to call there corresponding _end methods. We just got done with the "Object", 
+    so lets call <code>JsonBuildObject_EndObject(buf, 1)</code> to stop appending to that object.
+    
+    The buffer simply gets a <code>}</code> appended to it, as we passed a one to the method, indicating that 
+    this is property in the object, so we don't need to put a coma in.
+
+    the buffer is now in this state:
+    <pre><code class="language-json">{"k":1,"Object":{}</code></pre>
+    Perfect! Now all we have todo is call 
+    <code>JsonBuildObject_End(buf);</code> to put the final cap on this object! leaving the buffer like this :
+    <pre><code class="language-json">{"k":1,"Object":{}}</code></pre>
+
+    We can now pass this buffer out or even write it out to a file.
+</p>
+
+A link to this Library is <a href="https://github.com/hexmaster111/HaileysHeaders/blob/main/json_simple.h">Here!</a>
+
 
 
 
 <p>Created FEB 28 2025</p>
+</p>
