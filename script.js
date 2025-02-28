@@ -1,4 +1,4 @@
-const articals = ["0_home", "1_casio_watch_lang"];
+const articals = ["0_home", "2_simple_json_in_c", "1_casio_watch_lang"];
 
 const elem_artical = document.getElementById("id_artical");
 const elem_nav = document.getElementById("id_nav");

@@ -1,0 +1,79 @@
+<h1>Simple JSON building in C</h1>
+
+<p>Sometimes, we just want to put a JSON string together. I came up with what I think to be a novel solution to this
+    problem.</p>
+
+
+<pre><code class="language-c">
+#define JSON_IMPL
+#include "json_simple.h"
+
+// just a buffer to write into 
+char buf[1024*3] = {0};
+
+JsonBuildObject_Start(buf);
+    JsonBuildObject_AddPropertyRaw(buf, "k", "1", 0);
+    JsonBuildObject_AddProperty(buf, "label", "Label", 0);
+    JsonBuildObject_AddProperty(buf, "something", "123", 0);
+    JsonBuildObject_AddPropertyRaw(buf, "obj", "{}", 0);
+    JsonBuildObject_AddPropertyRaw(buf, "arr", "[]", 1);
+JsonBuildObject_End(buf);
+
+printf("%s\n", buf);
+</code></pre>
+
+
+<p>
+    From this little sample, you can already start to see the power of this tool! But this simple sample glosses over a
+    few of the more powerful features that this header file can provide. For example, where we add the
+    hardcoded object `{}`, this can be replaced with another `JsonBuildObject_Start()` group.
+
+
+<pre><code class="language-c">
+    char obj_a_buf[1024] = {0};
+    char obj_b_buf[1024] = {0};
+
+    JsonBuildObject_Start(obj_b_buf);
+        JsonBuildObject_AddPropertyRaw(obj_b_buf, "arr", "[0,1,2,3,4]", 1);
+    JsonBuildObject_End(obj_b_buf);
+
+    JsonBuildObject_Start(obj_a_buf);
+        JsonBuildObject_AddPropertyRaw(obj_a_buf, "k", "1", 0);
+        JsonBuildObject_AddPropertyRaw(obj_a_buf, "obj", obj_b_buf, 0);
+        JsonBuildObject_AddPropertyRaw(obj_a_buf, "arr", "[]", 1);
+    JsonBuildObject_End(obj_a_buf);
+
+    printf("%s\n", obj_a_buf);
+        </code></pre>
+
+<pre><code class="language-json">{"k":1,"obj":{"arr":[0,1,2,3,4]},"arr":[]}</code></pre>
+
+Looking at this, And thinking about it, I think we could make it easer to work with still from nested loops, Right now,
+You have to have each object built already before running the outer object.
+
+I think this is actually pretty silly. So I think I will add another API method. Something like
+<code class="language-c">JsonBuildObject_StartInnerObject()</code>
+and
+<code class="language-c">JsonBuildObject_EndInnerObject()</code>
+This will allow us to not need to start off
+with a pre built object in another buffer.
+
+<pre><code class="language-c">
+    char buf[1024] = {0};
+    JsonBuildObject_Start(buf);
+        JsonBuildObject_AddPropertyRaw(buf, "k", "1", 0);
+            JsonBuildObject_StartObject(buf, "Object");
+                JsonBuildObject_AddPropertyRaw(buf, "o", "123", 1);
+            JsonBuildObject_EndObject(buf, 0);
+        JsonBuildObject_AddPropertyRaw(buf, "arr", "[]", 1);
+    JsonBuildObject_End(buf);
+</code></pre>
+
+With those little changes, it is far easer to work with json now!
+
+A link to this Library is <a href="https://github.com/hexmaster111/HaileysHeaders/blob/main/json_simple.h">Here!</a>
+</p>
+
+
+
+<p>Created FEB 28 2025</p>
